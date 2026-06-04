@@ -32,9 +32,9 @@ jobs:
         uses: actions/upload-artifact@v5
         with:
           name: mcsm-macos-arm64
-          path: build/mcsm-macos-arm64
+          path: build/mcsm-osx-arm64
       - name: Upload macOS x64 build artifact
         uses: actions/upload-artifact@v5
         with:
           name: mcsm-macos-x64
-          path: build/mcsm-macos-x64
+          path: build/mcsm-osx-x64
