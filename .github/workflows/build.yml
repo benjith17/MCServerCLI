@@ -12,6 +12,8 @@ jobs:
         with:
           go-version: stable
           cache: true
+      - name: Install dependencies
+        run: go mod tidy
       - name: chmod +x build.sh
         run: chmod +x .github/scripts/build.sh
       - name: Build the project
