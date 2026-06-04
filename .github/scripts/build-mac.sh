@@ -1,5 +1,5 @@
 # Build macOS (intel)
-GOOS=darwin GOARCH=amd64 go build -o ./build/mcsm-osx-intel .
+GOOS=darwin GOARCH=amd64 go build -o ./build/mcsm-osx-x64 .
 
 
 # Build macOS (arm64)
