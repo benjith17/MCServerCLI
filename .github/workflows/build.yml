@@ -1,0 +1,22 @@
+on:
+  - push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: stable
+      - name: chmod +x build.sh
+        run: chmod +x build.sh
+      - name: Build the project
+        run: ./build.sh
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: mcservercli
+          path: build/
