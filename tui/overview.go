@@ -30,6 +30,7 @@ const (
 type Overview struct {
 	rows     []overviewRow
 	selected int
+	idle     bool
 }
 
 type overviewRow struct {
@@ -46,8 +47,9 @@ func NewOverview() Overview {
 	return Overview{}
 }
 
-func (o Overview) refresh(servers []*server.Server, selected int) Overview {
+func (o Overview) refresh(servers []*server.Server, selected int, idle bool) Overview {
 	o.selected = selected
+	o.idle = idle
 	o.rows = make([]overviewRow, len(servers))
 	for i, srv := range servers {
 		st := srv.GetStats()
@@ -79,6 +81,9 @@ func (o Overview) render(width, height int) string {
 
 	for i, row := range o.rows {
 		badge := statusBadge(row.status)
+		if row.status == server.Stopped {
+			badge = "● Stopped"
+		}
 		badgeWidth := lipgloss.Width(badge)
 		statusPad := colStatus - badgeWidth
 		if statusPad < 0 {
@@ -93,14 +98,19 @@ func (o Overview) render(width, height int) string {
 			padRight(formatUptime(row.uptime), colUptime) +
 			row.version
 
-		if i == o.selected {
+		if row.status == server.Stopped {
+			line = styleStopped.Render(line)
+		}
+		if i == o.selected && !o.idle {
 			line = styleSelected.Render(line)
 		}
 		sb.WriteString(line + "\n")
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString(styleFaint.Render("↑↓/jk select  s start  x stop  r restart  Enter detail  q quit"))
+	if !o.idle {
+		sb.WriteString("\n")
+		sb.WriteString(styleFaint.Render("↑↓/jk select  s start  x stop  r restart  Enter detail  q quit"))
+	}
 	return sb.String()
 }
 

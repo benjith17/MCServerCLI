@@ -26,7 +26,7 @@ All mutable state is protected by a single `sync.Mutex`. The TUI reads state via
 
 Built with Bubble Tea. The root model (`App`) routes between two views.
 
-**Overview** — a table showing all servers with columns: Name, Status, Players, RAM, CPU, Uptime, Version. A 1-second tick drives refreshes by calling the server getters and re-rendering. Start/stop/restart are wrapped in `tea.Cmd` closures so they don't block the UI event loop.
+**Overview** — a table showing all servers with columns: Name, Status, Players, RAM, CPU, Uptime, Version. A 1-second tick drives refreshes by calling the server getters and re-rendering. Start/stop/restart are wrapped in `tea.Cmd` closures so they don't block the UI event loop. Stopped servers render the entire row in grey. After 5 seconds of no keypresses the selection highlight and key hint footer are hidden; any keypress restores them.
 
 **Detail** — full-screen view for a single server. Contains a `bubbles/viewport` for scrollable log output and a `bubbles/textinput` for sending commands to the server's stdin. Auto-scrolls to the bottom unless the user has manually scrolled up.
 

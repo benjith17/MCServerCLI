@@ -22,12 +22,15 @@ type switchViewMsg struct {
 	serverIdx int
 }
 
+const idleTimeout = 5 * time.Second
+
 type App struct {
 	servers  []*server.Server
 	view     view
 	selected int
 	width    int
 	height   int
+	lastKey  time.Time
 	overview Overview
 	detail   Detail
 }
@@ -40,6 +43,7 @@ func NewApp(cfg *config.Config) App {
 	return App{
 		servers:  servers,
 		view:     viewOverview,
+		lastKey:  time.Now(),
 		overview: NewOverview(),
 		detail:   NewDetail(),
 	}
@@ -75,7 +79,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tickMsg:
-		a.overview = a.overview.refresh(a.servers, a.selected)
+		a.overview = a.overview.refresh(a.servers, a.selected, time.Since(a.lastKey) > idleTimeout)
 		if a.view == viewDetail && len(a.servers) > 0 {
 			a.detail = a.detail.refresh(a.servers[a.selected])
 		}
@@ -90,6 +94,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tea.KeyMsg:
+		a.lastKey = time.Now()
 		if msg.String() == "ctrl+c" {
 			return a, tea.Quit
 		}
@@ -148,7 +153,7 @@ func (a App) updateOverview(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 	}
 
-	a.overview = a.overview.refresh(a.servers, a.selected)
+	a.overview = a.overview.refresh(a.servers, a.selected, time.Since(a.lastKey) > idleTimeout)
 	return a, nil
 }
 
