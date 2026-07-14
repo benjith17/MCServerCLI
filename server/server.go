@@ -240,8 +240,9 @@ func (s *Server) tailLog(ctx context.Context) {
 	defer f.Close()
 
 	// Seek to end — ignore content from before this session
-	_, _ = f.Seek(0, io.SeekEnd)
+	pos, _ := f.Seek(0, io.SeekEnd)
 	reader := bufio.NewReader(f)
+	var partial string
 
 	for {
 		select {
@@ -249,14 +250,30 @@ func (s *Server) tailLog(ctx context.Context) {
 			return
 		case <-time.After(logPollInterval):
 		}
+
+		// Detect file truncation: Minecraft recreates latest.log on each start.
+		// If the file is now smaller than our position, reset to the beginning.
+		if info, err := f.Stat(); err == nil && info.Size() < pos {
+			pos, _ = f.Seek(0, io.SeekStart)
+			reader.Reset(f)
+			partial = ""
+		}
+
 		for {
 			line, err := reader.ReadString('\n')
-			if len(line) > 0 {
-				s.processLogLine(strings.TrimRight(line, "\r\n"))
-			}
 			if err != nil {
+				// Accumulate incomplete lines and wait for the rest next poll.
+				partial += line
 				break
 			}
+			full := partial + line
+			partial = ""
+			s.processLogLine(strings.TrimRight(full, "\r\n"))
+		}
+
+		// After draining to EOF the bufio buffer is empty; fd position is consumed position.
+		if cur, err := f.Seek(0, io.SeekCurrent); err == nil {
+			pos = cur
 		}
 	}
 }
