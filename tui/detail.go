@@ -53,11 +53,27 @@ func (d Detail) reset(srv *server.Server, width, height int) Detail {
 func (d Detail) refresh(srv *server.Server) Detail {
 	d.statusStr = statusBadge(srv.GetStatus())
 	logs := srv.GetLogs()
-	d.vp.SetContent(strings.Join(logs, "\n"))
+	d.vp.SetContent(strings.Join(wrapLogLines(logs, d.vp.Width), "\n"))
 	if d.atBottom {
 		d.vp.GotoBottom()
 	}
 	return d
+}
+
+// wrapLogLines hard-wraps each line to width characters so the viewport doesn't clip them.
+func wrapLogLines(lines []string, width int) []string {
+	if width <= 0 {
+		return lines
+	}
+	out := make([]string, 0, len(lines))
+	for _, line := range lines {
+		for len(line) > width {
+			out = append(out, line[:width])
+			line = line[width:]
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 func (d Detail) update(msg tea.KeyMsg, srv *server.Server) (Detail, tea.Cmd) {

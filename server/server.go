@@ -223,23 +223,27 @@ func (s *Server) tailLog(ctx context.Context) {
 
 	logPath := filepath.Join(s.Config.Directory, "logs", "latest.log")
 
-	var f *os.File
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
+	openLog := func() *os.File {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+			if f, err := os.Open(logPath); err == nil {
+				return f
+			}
+			time.Sleep(logPollInterval)
 		}
-		var err error
-		f, err = os.Open(logPath)
-		if err == nil {
-			break
-		}
-		time.Sleep(logPollInterval)
+	}
+
+	f := openLog()
+	if f == nil {
+		return
 	}
 	defer f.Close()
 
-	// Seek to end — ignore content from before this session
+	// Seek to end — ignore content from before this session.
 	pos, _ := f.Seek(0, io.SeekEnd)
 	reader := bufio.NewReader(f)
 	var partial string
@@ -251,8 +255,22 @@ func (s *Server) tailLog(ctx context.Context) {
 		case <-time.After(logPollInterval):
 		}
 
-		// Detect file truncation: Minecraft recreates latest.log on each start.
-		// If the file is now smaller than our position, reset to the beginning.
+		// Detect file rotation: the logger renamed latest.log and created a new one.
+		// os.SameFile compares inodes (volume+index on Windows) to catch this.
+		if fi1, err1 := os.Stat(logPath); err1 == nil {
+			if fi2, err2 := f.Stat(); err2 == nil && !os.SameFile(fi1, fi2) {
+				f.Close()
+				f = openLog()
+				if f == nil {
+					return
+				}
+				pos = 0
+				reader.Reset(f)
+				partial = ""
+			}
+		}
+
+		// Detect in-place truncation: file shrank (e.g. overwritten on startup).
 		if info, err := f.Stat(); err == nil && info.Size() < pos {
 			pos, _ = f.Seek(0, io.SeekStart)
 			reader.Reset(f)
@@ -262,16 +280,15 @@ func (s *Server) tailLog(ctx context.Context) {
 		for {
 			line, err := reader.ReadString('\n')
 			if err != nil {
-				// Accumulate incomplete lines and wait for the rest next poll.
+				// Incomplete line — hold it until the rest arrives next poll.
 				partial += line
 				break
 			}
-			full := partial + line
+			s.processLogLine(strings.TrimRight(partial+line, "\r\n"))
 			partial = ""
-			s.processLogLine(strings.TrimRight(full, "\r\n"))
 		}
 
-		// After draining to EOF the bufio buffer is empty; fd position is consumed position.
+		// After draining to EOF the bufio buffer is empty; fd position = consumed position.
 		if cur, err := f.Seek(0, io.SeekCurrent); err == nil {
 			pos = cur
 		}
